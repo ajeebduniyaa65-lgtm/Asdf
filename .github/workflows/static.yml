@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Khata - Expense & Budget Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.2s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen pb-24 sm:pb-12">
+
+    <!-- Top Header -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-extrabold text-lg shadow-inner">
+                    ₹
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg leading-tight tracking-tight">Daily Khata</h1>
+                    <p class="text-[11px] text-slate-400">Rozana Kharch & Budget Tracker</p>
+                </div>
+            </div>
+            <span id="headerDateBadge" class="text-xs font-medium bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-700">
+                Today
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-2xl mx-auto px-4 pt-4 space-y-5">
+
+        <!-- Storage Warning Banner (Visible if localStorage fails or is blocked) -->
+        <div id="storageWarningBanner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-2xl text-xs sm:text-sm flex items-start gap-2.5 shadow-xs" role="alert">
+            <span class="text-base leading-none mt-0.5">⚠️</span>
+            <div>
+                <p class="font-bold">Storage Warning (Local Data)</p>
+                <p id="storageWarningText" class="text-xs text-amber-800 mt-0.5">Browser localStorage unavailable hai. Entries is session mein rahengi, lekin page reload par reset ho sakti hain.</p>
+            </div>
+        </div>
+
+        <!-- Toast Notification Box (Replaces alert) -->
+        <div id="toast" class="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 hidden pointer-events-none">
+            <div class="bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 border border-slate-700">
+                <span id="toastIcon">✅</span>
+                <span id="toastMessage">Saved!</span>
+            </div>
+        </div>
+
+        <!-- 1. Summary Dashboard -->
+        <section class="space-y-3" aria-label="Expense Summary">
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Today's Total Expense -->
+                <div class="bg-white p-4 rounded-2xl shadow-xs border border-slate-100">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium text-slate-500">Aaj Ka Kharch</span>
+                        <span class="text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-bold uppercase">Today</span>
+                    </div>
+                    <div id="todayExpenseEl" class="text-xl sm:text-2xl font-extrabold text-rose-600 tracking-tight">₹0</div>
+                    <p id="todayCountEl" class="text-[11px] text-slate-400 mt-1">0 entries today</p>
+                </div>
+
+                <!-- This Month's Total Expense -->
+                <div class="bg-white p-4 rounded-2xl shadow-xs border border-slate-100">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium text-slate-500">Is Mahine Ka Kharch</span>
+                        <span id="currentMonthLabel" class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Month</span>
+                    </div>
+                    <div id="monthExpenseEl" class="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">₹0</div>
+                    <p id="monthIncomeEl" class="text-[11px] text-emerald-600 font-medium mt-1">Income: ₹0</p>
+                </div>
+            </div>
+
+            <!-- Monthly Budget & Balance Card with Inline Editable Budget -->
+            <div class="bg-white p-4 rounded-2xl shadow-xs border border-slate-100 space-y-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <span class="text-xs font-medium text-slate-500 block">Monthly Budget & Remaining</span>
+                        <div class="flex flex-wrap items-baseline gap-2 mt-0.5">
+                            <span id="budgetDisplayEl" class="text-base font-extrabold text-slate-800">₹15,000</span>
+                            <span id="budgetRemainingEl" class="text-xs font-semibold text-emerald-600">(₹15,000 bacha hai)</span>
+                        </div>
+                    </div>
+
+                    <!-- Inline Budget Edit Controls -->
+                    <div class="flex items-center gap-1.5">
+                        <label for="inlineBudgetInput" class="sr-only">Monthly Budget (INR)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-2.5 text-xs font-bold text-slate-400 select-none">₹</span>
+                            <input type="number" id="inlineBudgetInput" min="0" max="999999999" step="1" placeholder="15000"
+                                class="w-28 pl-6 pr-2 py-1.5 text-xs sm:text-sm font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition">
+                        </div>
+                        <button type="button" onclick="saveInlineBudget()"
+                            class="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl transition cursor-pointer">
+                            Set
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dynamic Color-Changing Progress Bar -->
+                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div id="budgetProgressBar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <div class="flex justify-between items-center text-[11px] text-slate-500">
+                    <span id="budgetPercentEl" class="font-medium">0% used</span>
+                    <span>Monthly Balance (Income - Expense): <strong id="monthlyNetBalanceEl" class="text-emerald-600 font-bold">₹0</strong></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Quick Entry / Edit Form -->
+        <section id="formSection" class="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-100 transition-all" aria-label="Add or Edit Transaction">
+            <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2">
+                    <h2 id="formHeading" class="font-bold text-sm sm:text-base text-slate-800">Naya Hisab Jodein (Add Entry)</h2>
+                    <span id="editingBadge" class="hidden text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                        Editing Mode
+                    </span>
+                </div>
+                <button type="button" id="cancelEditBtn" onclick="cancelEdit()"
+                    class="hidden text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition cursor-pointer">
+                    Cancel Edit
+                </button>
+            </div>
+
+            <form id="transactionForm" onsubmit="handleFormSubmit(event)" class="space-y-3.5" novalidate>
+                <!-- Type Toggle: Expense vs Income -->
+                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                    <button type="button" id="btnTypeExpense" onclick="setTransactionType('expense')"
+                        class="py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 bg-rose-600 text-white shadow-xs cursor-pointer">
+                        <span>-</span> Expense (Kharch)
+                    </button>
+                    <button type="button" id="btnTypeIncome" onclick="setTransactionType('income')"
+                        class="py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-800 cursor-pointer">
+                        <span>+</span> Income (Aamdani)
+                    </button>
+                </div>
+
+                <!-- Amount & Date Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                    <div class="sm:col-span-3">
+                        <label for="amountInput" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Amount (₹)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-3.5 text-xl font-bold text-slate-400 select-none">₹</span>
+                            <input type="number" id="amountInput" step="0.01" min="0.01" max="999999999" required placeholder="0"
+                                class="w-full pl-9 pr-4 py-2.5 text-2xl font-extrabold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition">
+                        </div>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="dateInput" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Date (Tarikh)</label>
+                        <input type="date" id="dateInput" required
+                            class="w-full px-3 py-3 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition">
+                    </div>
+                </div>
+
+                <!-- Category Selector Pills -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Category Chunein</label>
+                    <div id="categoryGrid" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        <!-- Rendered safely via JS -->
+                    </div>
+                </div>
+
+                <!-- Note Input -->
+                <div>
+                    <label for="noteInput" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Note / Details (Optional)</label>
+                    <input type="text" id="noteInput" maxlength="100" placeholder="Jaise: Chai-Nashta, Auto fare, Bijli bill..."
+                        class="w-full px-3.5 py-2.5 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition">
+                </div>
+
+                <!-- Submit / Update Button -->
+                <div class="flex gap-2">
+                    <button type="submit" id="submitBtn"
+                        class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span id="submitBtnText">Save Entry</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 3. Filter & History List -->
+        <section class="space-y-3" aria-label="Transaction History">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h2 class="font-bold text-sm sm:text-base text-slate-800">Hisab History</h2>
+
+                <!-- Type Filter Pills: All / Expense / Income -->
+                <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                    <button type="button" onclick="setTypeFilter('all')" id="filter-type-all"
+                        class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-white transition cursor-pointer">All</button>
+                    <button type="button" onclick="setTypeFilter('expense')" id="filter-type-expense"
+                        class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer">Expense</button>
+                    <button type="button" onclick="setTypeFilter('income')" id="filter-type-income"
+                        class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer">Income</button>
+                </div>
+            </div>
+
+            <!-- Real-time Note Search & Category Dropdown -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div class="sm:col-span-2 relative">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" id="searchInput" oninput="renderTransactions()" placeholder="Search by note..."
+                        class="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+                <select id="categoryFilterSelect" onchange="renderTransactions()" aria-label="Filter by Category"
+                    class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900">
+                    <option value="all">All Categories</option>
+                    <option value="Food">🍔 Food</option>
+                    <option value="Travel">🚕 Travel</option>
+                    <option value="Shop">🛍️ Shop</option>
+                    <option value="Bills">🧾 Bills</option>
+                    <option value="Salary">💰 Salary</option>
+                    <option value="Other">📦 Other</option>
+                </select>
+            </div>
+
+            <!-- Filtered Summary Strip -->
+            <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+                <span id="filteredCountText">Showing 0 entries</span>
+                <span id="filteredTotalText" class="font-semibold text-slate-700"></span>
+            </div>
+
+            <!-- Transactions List Container -->
+            <div id="transactionsList" class="space-y-2.5">
+                <!-- Rendered safely via DOM helpers -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Delete Confirmation Modal (Replaces window.confirm) -->
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="bg-white w-full max-w-xs rounded-2xl p-5 shadow-2xl animate-slide-up text-center">
+            <div class="w-11 h-11 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 text-xl">🗑️</div>
+            <h3 id="deleteModalTitle" class="font-bold text-base text-slate-800 mb-1">Entry Delete Karein?</h3>
+            <p class="text-xs text-slate-500 mb-4">Kya aap sach mein is entry ko hatana chahte hain?</p>
+            <div class="flex gap-2 justify-center">
+                <button type="button" onclick="closeDeleteModal()" class="flex-1 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer">Nahi</button>
+                <button type="button" onclick="confirmDelete()" class="flex-1 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition cursor-pointer">Haan, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        // --- Constants & Storage Keys ---
+        const STORAGE_KEY_TX = 'daily_khata_transactions_v3';
+        const STORAGE_KEY_BUDGET = 'daily_khata_budget_v3';
+        const DEFAULT_BUDGET_PAISE = 1500000; // ₹15,000.00 in integer paise
+        const MAX_PAISE = 99999999900;     // ₹99,99,99,999.00 cap
+
+        const CATEGORIES = [
+            { name: 'Food', icon: '🍔', colorClass: 'bg-orange-100 text-orange-700' },
+            { name: 'Travel', icon: '🚕', colorClass: 'bg-blue-100 text-blue-700' },
+            { name: 'Shop', icon: '🛍️', colorClass: 'bg-pink-100 text-pink-700' },
+            { name: 'Bills', icon: '🧾', colorClass: 'bg-purple-100 text-purple-700' },
+            { name: 'Salary', icon: '💰', colorClass: 'bg-emerald-100 text-emerald-700' },
+            { name: 'Other', icon: '📦', colorClass: 'bg-slate-100 text-slate-700' }
+        ];
+
+        // --- Application State (All amounts stored in integer paise) ---
+        let transactions = [];         // Array of { id, type, amountPaise, category, note, date, createdAt }
+        let budgetPaise = DEFAULT_BUDGET_PAISE;
+        let currentType = 'expense';     // 'expense' | 'income'
+        let selectedCategory = 'Food';
+        let editingId = null;            // Active transaction ID being edited, or null
+        let currentTypeFilter = 'all'; // 'all' | 'expense' | 'income'
+        let pendingDeleteId = null;
+        let toastTimer = null;
+        let storageAvailable = true;
+
+        // =====================================================================
+        // 1. LOCAL TIMEZONE DATE HELPERS (Strictly getFullYear/getMonth/getDate)
+        // =====================================================================
+
+        /**
+         * Returns local YYYY-MM-DD using local getFullYear, getMonth, getDate.
+         * Never uses UTC toISOString().
+         * @param {Date} [dateObj=new Date()]
+         * @returns {string}
+         */
+        function getLocalDateStr(dateObj = new Date()) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Returns local YYYY-MM 
